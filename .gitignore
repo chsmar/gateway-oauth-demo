@@ -1,0 +1,81 @@
+# Eclipse specific files
+.classpath
+.project
+.settings/
+
+# IntelliJ IDEA specific files
+.idea/
+*.iml
+*.ipr
+*.iws
+out/
+
+# NetBeans specific files
+nbproject/private/
+build/
+nbbuild/
+dist/
+nbdist/
+nbactions.xml
+nb-configuration.xml
+
+# VS Code specific files
+.vscode/
+
+# Gradle specific files
+.gradle/
+**/.gradle/
+build/
+**/build/
+
+# Maven specific files
+target/
+**/target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+
+# Build Output
+bin/
+**/bin/
+out/
+**/out/
+
+# Logs
+*.log
+**/*.log
+**/logs/
+
+# Temporary files
+*.tmp
+*.swp
+*.bak
+*.swo
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Package files
+*.jar
+*.war
+*.ear
+
+# Coverage and report files
+coverage/
+**/coverage/
+*.lcov
+test-output/
+**/test-output/
+
+# Generated files
+gen/
+**/gen/
+generated/
+**/generated/
+
+# Ignore all files with names starting with . (e.g., .env, .env.local)
+.*
+!.gitignore

@@ -51,10 +51,7 @@ import java.security.Principal;
 @RestController
 public class OauthApplication implements CommandLineRunner {
 
-    // Simple example shows how a command line spring application can execute an
-    // injected bean service. Also demonstrates how you can use @Value to inject
-    // command line args ('--name=whatever') or application properties
-
+    public static final String RESOURCE_ID = "resource-server-rest-api";
     @Autowired
     private HelloWorldService helloWorldService;
 
@@ -88,7 +85,7 @@ public class OauthApplication implements CommandLineRunner {
         @Override
         public void configure(ClientDetailsServiceConfigurer clients) throws Exception {
             clients.inMemory().withClient("client").secret("secret")
-                    .authorizedGrantTypes("password", "refresh_token").scopes("read", "write", "userinfo")
+                    .authorizedGrantTypes("password", "refresh_token").scopes("read", "write")
                     .resourceIds("resource-server-rest-api")
                     .accessTokenValiditySeconds(3600)
                     .refreshTokenValiditySeconds(2592000);
@@ -100,7 +97,7 @@ public class OauthApplication implements CommandLineRunner {
         }
 
         public TokenStore tokenStore() {
-            return new InMemoryTokenStore();  // También podrías usar un token store basado en JDBC o JWT
+            return new InMemoryTokenStore();
         }
     }
 
@@ -152,7 +149,7 @@ public class OauthApplication implements CommandLineRunner {
 
         @Override
         public void configure(ResourceServerSecurityConfigurer resources) throws Exception {
-            resources.resourceId("resource-server-rest-api");
+            resources.resourceId(RESOURCE_ID);
         }
     }
 }

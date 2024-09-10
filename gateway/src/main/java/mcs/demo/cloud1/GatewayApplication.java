@@ -28,6 +28,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.oauth2.config.annotation.web.configuration.EnableResourceServer;
 import org.springframework.security.oauth2.config.annotation.web.configuration.ResourceServerConfigurerAdapter;
+import org.springframework.security.oauth2.config.annotation.web.configurers.ResourceServerSecurityConfigurer;
 
 @Configuration
 @EnableAutoConfiguration
@@ -56,8 +57,13 @@ public class GatewayApplication implements CommandLineRunner {
 			http
 					.authorizeRequests()
 					.antMatchers(HttpMethod.OPTIONS).permitAll()
-                    .antMatchers("/*/public/**", "/uaa/**").permitAll()
-					.antMatchers("/*/api/**").authenticated();
+                    .antMatchers("/*/api/**").authenticated()
+                    .anyRequest().permitAll();
+        }
+
+        @Override
+        public void configure(ResourceServerSecurityConfigurer resources) throws Exception {
+            resources.resourceId("resource-server-rest-api"); // same in oauth server resource config
         }
     }
 }

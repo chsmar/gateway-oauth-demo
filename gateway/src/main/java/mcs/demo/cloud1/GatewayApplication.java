@@ -60,10 +60,5 @@ public class GatewayApplication implements CommandLineRunner {
                     .antMatchers("/*/api/**").authenticated()
                     .anyRequest().permitAll();
         }
-
-        @Override
-        public void configure(ResourceServerSecurityConfigurer resources) throws Exception {
-            resources.resourceId("resource-server-rest-api"); // same in oauth server resource config
-        }
     }
 }

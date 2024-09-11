@@ -37,7 +37,6 @@ import org.springframework.security.oauth2.config.annotation.web.configuration.E
 import org.springframework.security.oauth2.config.annotation.web.configuration.ResourceServerConfigurerAdapter;
 import org.springframework.security.oauth2.config.annotation.web.configurers.AuthorizationServerEndpointsConfigurer;
 import org.springframework.security.oauth2.config.annotation.web.configurers.AuthorizationServerSecurityConfigurer;
-import org.springframework.security.oauth2.config.annotation.web.configurers.ResourceServerSecurityConfigurer;
 import org.springframework.security.oauth2.provider.token.TokenStore;
 import org.springframework.security.oauth2.provider.token.store.InMemoryTokenStore;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -51,7 +50,6 @@ import java.security.Principal;
 @RestController
 public class OauthApplication implements CommandLineRunner {
 
-    public static final String RESOURCE_ID = "resource-server-rest-api";
     @Autowired
     private HelloWorldService helloWorldService;
 
@@ -86,7 +84,6 @@ public class OauthApplication implements CommandLineRunner {
         public void configure(ClientDetailsServiceConfigurer clients) throws Exception {
             clients.inMemory().withClient("client").secret("secret")
                     .authorizedGrantTypes("password", "refresh_token").scopes("read", "write")
-                    .resourceIds(RESOURCE_ID)
                     .accessTokenValiditySeconds(3600)
                     .refreshTokenValiditySeconds(2592000);
         }
@@ -132,9 +129,9 @@ public class OauthApplication implements CommandLineRunner {
     }
 
     @Order(2)
-	@Configuration
-	@EnableResourceServer
-	public static class ResourceConfiguration extends ResourceServerConfigurerAdapter {
+    @Configuration
+    @EnableResourceServer
+    public static class ResourceConfiguration extends ResourceServerConfigurerAdapter {
         @Override
         public void configure(HttpSecurity http) throws Exception {
             http
@@ -145,11 +142,6 @@ public class OauthApplication implements CommandLineRunner {
                     .antMatchers("/user/**").authenticated()
                     .and()
                     .csrf().disable();
-        }
-
-        @Override
-        public void configure(ResourceServerSecurityConfigurer resources) throws Exception {
-            resources.resourceId(RESOURCE_ID);
         }
     }
 }

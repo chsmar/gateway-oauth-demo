@@ -86,7 +86,7 @@ public class OauthApplication implements CommandLineRunner {
         public void configure(ClientDetailsServiceConfigurer clients) throws Exception {
             clients.inMemory().withClient("client").secret("secret")
                     .authorizedGrantTypes("password", "refresh_token").scopes("read", "write")
-                    .resourceIds("resource-server-rest-api")
+                    .resourceIds(RESOURCE_ID)
                     .accessTokenValiditySeconds(3600)
                     .refreshTokenValiditySeconds(2592000);
         }

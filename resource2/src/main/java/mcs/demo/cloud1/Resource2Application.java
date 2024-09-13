@@ -53,4 +53,9 @@ public class Resource2Application implements CommandLineRunner {
     public ResponseEntity<String> hello() {
         return ResponseEntity.ok(this.helloWorldService.getHelloMessage());
     }
+
+    @GetMapping("/public/hello")
+    public ResponseEntity<String> publicHello() {
+        return ResponseEntity.ok("Public: "+this.helloWorldService.getHelloMessage());
+    }
 }

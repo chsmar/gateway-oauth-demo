@@ -56,7 +56,7 @@ public class Resource1Application implements CommandLineRunner {
 
     @GetMapping("/api/all/hello")
     public ResponseEntity<List<String>> allHello() {
-        return ResponseEntity.ok(Arrays.asList(this.helloWorldService.getHelloMessage(), resource2.hello().getBody()));
+        return ResponseEntity.ok(Arrays.asList(this.helloWorldService.getHelloMessage(), resource2.hello().getBody(), resource2.publicHello().getBody()));
     }
 
     @GetMapping("/public/hello")
@@ -68,5 +68,8 @@ public class Resource1Application implements CommandLineRunner {
     public interface Resource2 {
         @GetMapping("/api/hello")
         ResponseEntity<String> hello();
+
+        @GetMapping("/public/hello")
+        ResponseEntity<String> publicHello();
     }
 }

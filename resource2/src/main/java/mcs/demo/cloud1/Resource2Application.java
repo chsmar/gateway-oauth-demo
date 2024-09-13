@@ -24,14 +24,34 @@ import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.filter.OncePerRequestFilter;
+
+import javax.servlet.FilterChain;
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.regex.Pattern;
 
 @Configuration
 @EnableAutoConfiguration
 @SpringBootApplication
 @RestController
 public class Resource2Application implements CommandLineRunner {
+    public static final String X_AUTH_USER = "X-Auth-User";
+    public static final String X_AUTH_TOKEN = "X-Auth-Token";
 
     // Simple example shows how a command line spring application can execute an
     // injected bean service. Also demonstrates how you can use @Value to inject
@@ -57,5 +77,46 @@ public class Resource2Application implements CommandLineRunner {
     @GetMapping("/public/hello")
     public ResponseEntity<String> publicHello() {
         return ResponseEntity.ok("Public: "+this.helloWorldService.getHelloMessage());
+    }
+
+    @Configuration
+    @EnableWebSecurity
+    public static class ResourceServiceConfig extends WebSecurityConfigurerAdapter {
+
+        @Override
+        protected void configure(HttpSecurity http) throws Exception {
+            http.csrf().disable()
+                    .authorizeRequests()
+                    .antMatchers("/api/**").authenticated()
+                    .anyRequest().permitAll()
+                    .and()
+                    .addFilterBefore(new CustomAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class)
+            ;
+        }
+
+        public static class CustomAuthenticationFilter extends OncePerRequestFilter {
+            private static final Pattern API_PATTERN = Pattern.compile("^/api/.*");
+
+            @Override
+            protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+                    throws ServletException, IOException {
+                if (!API_PATTERN.matcher(request.getServletPath()).matches()) {
+                    SecurityContextHolder.clearContext();
+                    filterChain.doFilter(request, response);
+                    return;
+                }
+                String username = request.getHeader(X_AUTH_USER);
+                String token = request.getHeader(X_AUTH_TOKEN);
+                if (username != null && token != null) {
+                    List<GrantedAuthority> authorities = new ArrayList<>();
+                    // add roles or authorities
+                    Authentication auth = new UsernamePasswordAuthenticationToken(username, null, authorities);
+                    SecurityContextHolder.getContext().setAuthentication(auth);
+                } else {
+                    SecurityContextHolder.clearContext();
+                }
+                filterChain.doFilter(request, response);
+            }
+        }
     }
 }

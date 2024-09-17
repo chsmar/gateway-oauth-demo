@@ -84,6 +84,11 @@ public class Resource1Application implements CommandLineRunner {
         return ResponseEntity.ok(Arrays.asList("Authenticated: " + usr, this.helloWorldService.getHelloMessage(), resource2.hello().getBody(), resource2.publicHello().getBody()));
     }
 
+    @GetMapping("/api/hello")
+    public ResponseEntity<String> hello() {
+        return ResponseEntity.ok(this.helloWorldService.getHelloMessage());
+    }
+
     @GetMapping("/public/hello")
     public ResponseEntity<String> publicHello() {
         return ResponseEntity.ok("Public: " + this.helloWorldService.getHelloMessage());

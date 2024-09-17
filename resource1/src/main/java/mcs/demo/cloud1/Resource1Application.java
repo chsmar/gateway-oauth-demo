@@ -48,6 +48,7 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.security.Principal;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -72,6 +73,17 @@ public class Resource1Application implements CommandLineRunner {
 
     public static void main(String[] args) throws Exception {
         SpringApplication.run(Resource1Application.class, args);
+    }
+
+    @GetMapping("/api/auth")
+    public ResponseEntity<Authentication> auth() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        return ResponseEntity.ok(authentication);
+    }
+
+    @GetMapping("/api/principal")
+    public ResponseEntity<Principal> principal(Principal principal) {
+        return ResponseEntity.ok(principal);
     }
 
     @Autowired
@@ -117,30 +129,30 @@ public class Resource1Application implements CommandLineRunner {
                     .addFilterBefore(new CustomAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class)
             ;
         }
+    }
 
-        public static class CustomAuthenticationFilter extends OncePerRequestFilter {
-            private static final Pattern API_PATTERN = Pattern.compile("^/api/.*");
+    public static class CustomAuthenticationFilter extends OncePerRequestFilter {
+        private static final Pattern API_PATTERN = Pattern.compile("^/api/.*");
 
-            @Override
-            protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
-                    throws ServletException, IOException {
-                if (!API_PATTERN.matcher(request.getServletPath()).matches()) {
-                    SecurityContextHolder.clearContext();
-                    filterChain.doFilter(request, response);
-                    return;
-                }
-                String username = request.getHeader(X_AUTH_USER);
-                String token = request.getHeader(X_AUTH_TOKEN);
-                if (username != null && token != null) {
-                    List<GrantedAuthority> authorities = new ArrayList<>();
-                    // add roles or authorities
-                    Authentication auth = new UsernamePasswordAuthenticationToken(username, null, authorities);
-                    SecurityContextHolder.getContext().setAuthentication(auth);
-                } else {
-                    SecurityContextHolder.clearContext();
-                }
+        @Override
+        protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+                throws ServletException, IOException {
+            if (!API_PATTERN.matcher(request.getServletPath()).matches()) {
+                SecurityContextHolder.clearContext();
                 filterChain.doFilter(request, response);
+                return;
             }
+            String username = request.getHeader(X_AUTH_USER);
+            String token = request.getHeader(X_AUTH_TOKEN);
+            if (username != null && token != null) {
+                List<GrantedAuthority> authorities = new ArrayList<>();
+                // add roles or authorities
+                Authentication auth = new UsernamePasswordAuthenticationToken(username, null, authorities);
+                SecurityContextHolder.getContext().setAuthentication(auth);
+            } else {
+                SecurityContextHolder.clearContext();
+            }
+            filterChain.doFilter(request, response);
         }
     }
 

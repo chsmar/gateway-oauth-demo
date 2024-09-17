@@ -41,6 +41,7 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.security.Principal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
@@ -67,6 +68,17 @@ public class Resource2Application implements CommandLineRunner {
 
     public static void main(String[] args) throws Exception {
         SpringApplication.run(Resource2Application.class, args);
+    }
+
+    @GetMapping("/api/auth")
+    public ResponseEntity<Authentication> auth() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        return ResponseEntity.ok(authentication);
+    }
+
+    @GetMapping("/api/principal")
+    public ResponseEntity<Principal> principal(Principal principal) {
+        return ResponseEntity.ok(principal);
     }
 
     @GetMapping("/api/hello")

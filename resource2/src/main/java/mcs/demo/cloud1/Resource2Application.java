@@ -17,6 +17,8 @@
 package mcs.demo.cloud1;
 
 import mcs.demo.cloud1.service.HelloWorldService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
@@ -42,15 +44,19 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.security.Principal;
+import java.util.AbstractMap;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 @Configuration
 @EnableAutoConfiguration
 @SpringBootApplication
 @RestController
 public class Resource2Application implements CommandLineRunner {
+    private static final Logger log = LoggerFactory.getLogger(Resource2Application.class);
     public static final String X_AUTH_USER = "X-Auth-User";
     public static final String X_AUTH_TOKEN = "X-Auth-Token";
 
@@ -88,7 +94,7 @@ public class Resource2Application implements CommandLineRunner {
 
     @GetMapping("/public/hello")
     public ResponseEntity<String> publicHello() {
-        return ResponseEntity.ok("Public: "+this.helloWorldService.getHelloMessage());
+        return ResponseEntity.ok("Public: " + this.helloWorldService.getHelloMessage());
     }
 
     @Configuration
@@ -102,33 +108,34 @@ public class Resource2Application implements CommandLineRunner {
                     .antMatchers("/api/**").authenticated()
                     .anyRequest().permitAll()
                     .and()
-                    .addFilterBefore(new CustomAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class)
+                    .addFilterBefore(new CustomAuthFilter(), UsernamePasswordAuthenticationFilter.class)
             ;
         }
+    }
 
-        public static class CustomAuthenticationFilter extends OncePerRequestFilter {
-            private static final Pattern API_PATTERN = Pattern.compile("^/api/.*");
+    public static class CustomAuthFilter extends OncePerRequestFilter {
+        private static final Pattern API_PATTERN = Pattern.compile("^/api/.*");
 
-            @Override
-            protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
-                    throws ServletException, IOException {
-                if (!API_PATTERN.matcher(request.getServletPath()).matches()) {
-                    SecurityContextHolder.clearContext();
-                    filterChain.doFilter(request, response);
-                    return;
-                }
-                String username = request.getHeader(X_AUTH_USER);
-                String token = request.getHeader(X_AUTH_TOKEN);
-                if (username != null && token != null) {
-                    List<GrantedAuthority> authorities = new ArrayList<>();
-                    // add roles or authorities
-                    Authentication auth = new UsernamePasswordAuthenticationToken(username, null, authorities);
-                    SecurityContextHolder.getContext().setAuthentication(auth);
-                } else {
-                    SecurityContextHolder.clearContext();
-                }
+        @Override
+        protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+                throws ServletException, IOException {
+            log.info("Headers: {}", Collections.list(request.getHeaderNames()).stream().map(h -> new AbstractMap.SimpleEntry<>(h, request.getHeader(h))).collect(Collectors.toList()));
+            if (!API_PATTERN.matcher(request.getServletPath()).matches()) {
+                SecurityContextHolder.clearContext();
                 filterChain.doFilter(request, response);
+                return;
             }
+            String username = request.getHeader(X_AUTH_USER);
+            String token = request.getHeader(X_AUTH_TOKEN);
+            if (username != null && token != null) {
+                List<GrantedAuthority> authorities = new ArrayList<>();
+                // add roles or authorities
+                Authentication auth = new UsernamePasswordAuthenticationToken(username, null, authorities);
+                SecurityContextHolder.getContext().setAuthentication(auth);
+            } else {
+                SecurityContextHolder.clearContext();
+            }
+            filterChain.doFilter(request, response);
         }
     }
 }

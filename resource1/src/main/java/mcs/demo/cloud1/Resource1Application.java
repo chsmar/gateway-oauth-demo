@@ -19,6 +19,8 @@ package mcs.demo.cloud1;
 import feign.RequestInterceptor;
 import feign.RequestTemplate;
 import mcs.demo.cloud1.service.HelloWorldService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
@@ -49,10 +51,9 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.security.Principal;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 @Configuration
 @EnableAutoConfiguration
@@ -60,7 +61,7 @@ import java.util.regex.Pattern;
 @RestController
 @EnableFeignClients
 public class Resource1Application implements CommandLineRunner {
-
+    private static final Logger log = LoggerFactory.getLogger(Resource1Application.class);
     public static final String X_AUTH_USER = "X-Auth-User";
     public static final String X_AUTH_TOKEN = "X-Auth-Token";
     @Autowired
@@ -126,17 +127,18 @@ public class Resource1Application implements CommandLineRunner {
                     .antMatchers("/api/**").authenticated()
                     .anyRequest().permitAll()
                     .and()
-                    .addFilterBefore(new CustomAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class)
+                    .addFilterBefore(new CustomAuthFilter(), UsernamePasswordAuthenticationFilter.class)
             ;
         }
     }
 
-    public static class CustomAuthenticationFilter extends OncePerRequestFilter {
+    public static class CustomAuthFilter extends OncePerRequestFilter {
         private static final Pattern API_PATTERN = Pattern.compile("^/api/.*");
 
         @Override
         protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
                 throws ServletException, IOException {
+            log.info("Headers: {}", Collections.list(request.getHeaderNames()).stream().map(h -> new AbstractMap.SimpleEntry<>(h, request.getHeader(h))).collect(Collectors.toList()));
             if (!API_PATTERN.matcher(request.getServletPath()).matches()) {
                 SecurityContextHolder.clearContext();
                 filterChain.doFilter(request, response);

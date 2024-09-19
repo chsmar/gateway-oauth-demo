@@ -27,6 +27,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cloud.netflix.zuul.EnableZuulProxy;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.core.Authentication;
@@ -40,6 +41,7 @@ import org.springframework.security.oauth2.provider.authentication.OAuth2Authent
 @EnableZuulProxy
 @SpringBootApplication
 public class GatewayApplication implements CommandLineRunner {
+    public static final String X_AUTH_CFG = "X-Auth-Cfg";
     public static final String X_AUTH_USER = "X-Auth-User";
     public static final String X_AUTH_TOKEN = "X-Auth-Token";
     @Autowired
@@ -92,10 +94,12 @@ public class GatewayApplication implements CommandLineRunner {
                 public Object run() {
                     RequestContext ctx = RequestContext.getCurrentContext();
                     Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-                    if (auth != null && auth.getDetails() instanceof OAuth2AuthenticationDetails) {
+                    boolean customAuth = Boolean.TRUE.toString().equals(ctx.getRequest().getHeader(X_AUTH_CFG));
+                    if (customAuth && auth != null && auth != null && auth.getDetails() instanceof OAuth2AuthenticationDetails) {
                         OAuth2AuthenticationDetails details = (OAuth2AuthenticationDetails) auth.getDetails();
                         ctx.addZuulRequestHeader(X_AUTH_USER, auth.getName());
                         ctx.addZuulRequestHeader(X_AUTH_TOKEN, details.getTokenValue());
+                        ctx.addZuulRequestHeader(HttpHeaders.AUTHORIZATION, null);
                     }
                     return null;
                 }

@@ -33,7 +33,12 @@ import org.springframework.security.config.annotation.web.configuration.WebSecur
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.config.annotation.web.configuration.EnableResourceServer;
+import org.springframework.security.oauth2.config.annotation.web.configuration.ResourceServerConfigurerAdapter;
+import org.springframework.security.oauth2.provider.OAuth2Authentication;
+import org.springframework.security.oauth2.provider.OAuth2Request;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -98,43 +103,39 @@ public class Resource2Application implements CommandLineRunner {
     }
 
     @Configuration
-    @EnableWebSecurity
-    public static class ResourceServiceConfig extends WebSecurityConfigurerAdapter {
+    @EnableResourceServer
+    public static class ResourceServerConfig extends ResourceServerConfigurerAdapter {
 
         @Override
-        protected void configure(HttpSecurity http) throws Exception {
+        public void configure(HttpSecurity http) throws Exception {
             http.csrf().disable()
+                    .addFilterAt(new CustomAuthFilter(), BasicAuthenticationFilter.class)
                     .authorizeRequests()
                     .antMatchers("/api/**").authenticated()
                     .anyRequest().permitAll()
-                    .and()
-                    .addFilterBefore(new CustomAuthFilter(), UsernamePasswordAuthenticationFilter.class)
             ;
         }
     }
 
     public static class CustomAuthFilter extends OncePerRequestFilter {
-        private static final Pattern API_PATTERN = Pattern.compile("^/api/.*");
 
         @Override
         protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
                 throws ServletException, IOException {
             log.info("Headers: {}", Collections.list(request.getHeaderNames()).stream().map(h -> new AbstractMap.SimpleEntry<>(h, request.getHeader(h))).collect(Collectors.toList()));
-            if (!API_PATTERN.matcher(request.getServletPath()).matches()) {
-                SecurityContextHolder.clearContext();
+            String username = request.getHeader(X_AUTH_USER);
+            Authentication currentAuth = SecurityContextHolder.getContext().getAuthentication();
+            if (currentAuth != null || username == null || request.getServletPath().startsWith("/public/")) {
                 filterChain.doFilter(request, response);
                 return;
             }
-            String username = request.getHeader(X_AUTH_USER);
             String token = request.getHeader(X_AUTH_TOKEN);
-            if (username != null && token != null) {
-                List<GrantedAuthority> authorities = new ArrayList<>();
-                // add roles or authorities
-                Authentication auth = new UsernamePasswordAuthenticationToken(username, null, authorities);
-                SecurityContextHolder.getContext().setAuthentication(auth);
-            } else {
-                SecurityContextHolder.clearContext();
-            }
+            List<GrantedAuthority> authorities = new ArrayList<>();
+            // add roles or authorities
+            Authentication auth = new UsernamePasswordAuthenticationToken(username, null, authorities);
+            OAuth2Request oAuth2Request = new OAuth2Request(null, "client", null, true, null, null, null, null, null);
+            OAuth2Authentication oauth = new OAuth2Authentication(oAuth2Request, auth);
+            SecurityContextHolder.getContext().setAuthentication(oauth);
             filterChain.doFilter(request, response);
         }
     }

@@ -54,7 +54,6 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.security.Principal;
 import java.util.*;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Configuration
@@ -118,8 +117,22 @@ public class Resource1Application implements CommandLineRunner {
         ResponseEntity<String> publicHello();
     }
 
+    @Configuration
+    @EnableResourceServer
+    public static class ResourceServerConfig extends ResourceServerConfigurerAdapter {
+
+        @Override
+        public void configure(HttpSecurity http) throws Exception {
+            http.csrf().disable()
+                    .addFilterAt(new CustomAuthFilter(), BasicAuthenticationFilter.class)
+                    .authorizeRequests()
+                    .antMatchers("/api/**").authenticated()
+                    .anyRequest().permitAll()
+            ;
+        }
+    }
+
     public static class CustomAuthFilter extends OncePerRequestFilter {
-        private static final Pattern API_PATTERN = Pattern.compile("^/api/.*");
 
         @Override
         protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
@@ -127,7 +140,7 @@ public class Resource1Application implements CommandLineRunner {
             log.info("Headers: {}", Collections.list(request.getHeaderNames()).stream().map(h -> new AbstractMap.SimpleEntry<>(h, request.getHeader(h))).collect(Collectors.toList()));
             String username = request.getHeader(X_AUTH_USER);
             Authentication currentAuth = SecurityContextHolder.getContext().getAuthentication();
-            if (currentAuth != null || username == null || !API_PATTERN.matcher(request.getServletPath()).matches()) {
+            if (currentAuth != null || username == null || request.getServletPath().startsWith("/public/")) {
                 filterChain.doFilter(request, response);
                 return;
             }
@@ -144,46 +157,27 @@ public class Resource1Application implements CommandLineRunner {
 
     @Configuration
     public static class FeignClientConfig {
-        private static final Pattern API_PATTERN = Pattern.compile("^/api/.*");
-
         @Bean
         public RequestInterceptor customHeadersInterceptor() {
             return new RequestInterceptor() {
                 @Override
                 public void apply(RequestTemplate template) {
-                    if (!API_PATTERN.matcher(template.url()).matches()) {
+                    ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+                    if (attributes == null || template.url().startsWith("/public/")) {
                         return;
                     }
-                    ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
-                    if (attributes != null) {
-                        HttpServletRequest request = attributes.getRequest();
-                        String username = request.getHeader(X_AUTH_USER);
-                        String token = request.getHeader(X_AUTH_TOKEN);
-
-                        if (username != null) {
-                            template.header(X_AUTH_USER, username);
-                        }
-                        if (token != null) {
-                            template.header(X_AUTH_TOKEN, token);
-                        }
+                    HttpServletRequest request = attributes.getRequest();
+                    Enumeration<String> headerNames = request.getHeaderNames();
+                    if (headerNames == null) {
+                        return;
+                    }
+                    while (headerNames.hasMoreElements()) {
+                        String headerName = headerNames.nextElement();
+                        String headerValue = request.getHeader(headerName);
+                        template.header(headerName, headerValue);
                     }
                 }
             };
-        }
-    }
-
-    @Configuration
-    @EnableResourceServer
-    public static class ResourceServerConfig extends ResourceServerConfigurerAdapter {
-
-        @Override
-        public void configure(HttpSecurity http) throws Exception {
-            http.csrf().disable()
-                    .addFilterAt(new CustomAuthFilter(), BasicAuthenticationFilter.class)
-                    .authorizeRequests()
-                    .antMatchers("/api/**").authenticated()
-                    .anyRequest().permitAll()
-            ;
         }
     }
 }

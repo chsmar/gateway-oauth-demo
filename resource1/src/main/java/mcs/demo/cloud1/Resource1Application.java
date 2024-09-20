@@ -52,7 +52,6 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.security.Principal;
 import java.util.*;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Configuration
@@ -133,13 +132,12 @@ public class Resource1Application implements CommandLineRunner {
     }
 
     public static class CustomAuthFilter extends OncePerRequestFilter {
-        private static final Pattern API_PATTERN = Pattern.compile("^/api/.*");
 
         @Override
         protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
                 throws ServletException, IOException {
             log.info("Headers: {}", Collections.list(request.getHeaderNames()).stream().map(h -> new AbstractMap.SimpleEntry<>(h, request.getHeader(h))).collect(Collectors.toList()));
-            if (!API_PATTERN.matcher(request.getServletPath()).matches()) {
+            if (request.getServletPath().startsWith("/public/")) {
                 SecurityContextHolder.clearContext();
                 filterChain.doFilter(request, response);
                 return;
@@ -160,28 +158,24 @@ public class Resource1Application implements CommandLineRunner {
 
     @Configuration
     public static class FeignClientConfig {
-        private static final Pattern API_PATTERN = Pattern.compile("^/api/.*");
-
         @Bean
         public RequestInterceptor customHeadersInterceptor() {
             return new RequestInterceptor() {
                 @Override
                 public void apply(RequestTemplate template) {
-                    if (!API_PATTERN.matcher(template.url()).matches()) {
+                    ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+                    if (attributes == null || template.url().startsWith("/public/")) {
                         return;
                     }
-                    ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
-                    if (attributes != null) {
-                        HttpServletRequest request = attributes.getRequest();
-                        String username = request.getHeader(X_AUTH_USER);
-                        String token = request.getHeader(X_AUTH_TOKEN);
-
-                        if (username != null) {
-                            template.header(X_AUTH_USER, username);
-                        }
-                        if (token != null) {
-                            template.header(X_AUTH_TOKEN, token);
-                        }
+                    HttpServletRequest request = attributes.getRequest();
+                    Enumeration<String> headerNames = request.getHeaderNames();
+                    if (headerNames == null) {
+                        return;
+                    }
+                    while (headerNames.hasMoreElements()) {
+                        String headerName = headerNames.nextElement();
+                        String headerValue = request.getHeader(headerName);
+                        template.header(headerName, headerValue);
                     }
                 }
             };

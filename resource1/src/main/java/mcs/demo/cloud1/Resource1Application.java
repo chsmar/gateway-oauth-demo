@@ -24,7 +24,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cloud.netflix.feign.EnableFeignClients;
 import org.springframework.cloud.netflix.feign.FeignClient;
@@ -34,13 +33,17 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.common.OAuth2AccessToken;
+import org.springframework.security.oauth2.common.exceptions.InvalidTokenException;
 import org.springframework.security.oauth2.config.annotation.web.configuration.EnableResourceServer;
 import org.springframework.security.oauth2.config.annotation.web.configuration.ResourceServerConfigurerAdapter;
+import org.springframework.security.oauth2.config.annotation.web.configurers.ResourceServerSecurityConfigurer;
 import org.springframework.security.oauth2.provider.OAuth2Authentication;
 import org.springframework.security.oauth2.provider.OAuth2Request;
-import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
+import org.springframework.security.oauth2.provider.token.ResourceServerTokenServices;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.context.request.RequestContextHolder;
@@ -57,7 +60,6 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 @Configuration
-@EnableAutoConfiguration
 @SpringBootApplication
 @RestController
 @EnableFeignClients
@@ -124,15 +126,69 @@ public class Resource1Application implements CommandLineRunner {
         @Override
         public void configure(HttpSecurity http) throws Exception {
             http.csrf().disable()
-                    .addFilterAt(new CustomAuthFilter(), BasicAuthenticationFilter.class)
+                    //.addFilterAt(new CustomAuthFilter(), AbstractPreAuthenticatedProcessingFilter.class)
                     .authorizeRequests()
                     .antMatchers("/api/**").authenticated()
                     .anyRequest().permitAll()
             ;
         }
+
+        @Autowired
+        private ResourceServerTokenServices defaultTokenServices;
+
+        @Override
+        public void configure(ResourceServerSecurityConfigurer resources) throws Exception {
+            TokenServicesDecorator decoratedTokenServices = new TokenServicesDecorator(defaultTokenServices);
+            resources.tokenServices(decoratedTokenServices);
+        }
+    }
+
+    public static class TokenServicesDecorator implements ResourceServerTokenServices {
+
+        private final ResourceServerTokenServices delegate;
+
+        public TokenServicesDecorator(ResourceServerTokenServices delegate) {
+            this.delegate = delegate;
+        }
+
+        @Override
+        public OAuth2Authentication loadAuthentication(String accessToken) throws AuthenticationException, InvalidTokenException {
+            String username = findHeader(X_AUTH_USER);
+            if (username == null) {
+                return delegate.loadAuthentication(accessToken);
+            }
+            String token = findHeader(X_AUTH_TOKEN);
+            List<GrantedAuthority> authorities = new ArrayList<>();
+            // add roles or authorities
+            Authentication auth = new UsernamePasswordAuthenticationToken(username, null, authorities);
+            OAuth2Request oAuth2Request = new OAuth2Request(null, "client", null, true, null, null, null, null, null);
+            OAuth2Authentication oauth = new OAuth2Authentication(oAuth2Request, auth);
+            log.info("custom loadAuth: {} {}", username, oauth);
+            return oauth;
+        }
+
+        @Override
+        public OAuth2AccessToken readAccessToken(String accessToken) {
+            return delegate.readAccessToken(accessToken);
+        }
+
+        private String findHeader(String headerKey) {
+            ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+            if (attributes == null) {
+                return null;
+            }
+            HttpServletRequest request = attributes.getRequest();
+            if (request == null) {
+                return null;
+            }
+            return request.getHeader(headerKey);
+        }
     }
 
     public static class CustomAuthFilter extends OncePerRequestFilter {
+        private static final Logger log = LoggerFactory.getLogger(CustomAuthFilter.class);
+        public static final String X_AUTH_USER = "X-Auth-User";
+        public static final String X_AUTH_TOKEN = "X-Auth-Token";
 
         @Override
         protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
